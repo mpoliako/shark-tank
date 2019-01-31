@@ -1,0 +1,32 @@
+
+image: ${DOCKER_REGISTRY_PULL_HOST}/cloudsimple/docker/go-docker:0.4
+stages:
+  - check
+  - publish
+
+check:
+  except:
+    - master
+    - /^rel_.*$/
+    - tags
+  script:
+    - git clone -v $CLOUDSIMPLE_CI_REPO_URL
+    - ci-cd/common-jobs/run-dev-check.sh
+  stage: check
+  tags:
+    - docker
+  
+create_version_tag:
+  except:
+    - tags
+  script:
+    - git clone -v $CLOUDSIMPLE_CI_REPO_URL
+    - export BUILD_VERSION=$(ci-cd/common-jobs/versioning/generate-build-version.py)
+    - ci-cd/common-jobs/versioning/set-build-version.py $BUILD_VERSION $API_TOKEN $CI_PROJECT_ID $CI_BUILD_REF
+    - ci-cd/common-jobs/trigger-double-commit.py
+  stage: publish
+  tags:
+    - docker
+  only:
+    - master
+    - /^rel_.*$/
