@@ -1,0 +1,7 @@
+[[constraint]]
+  name = "github.com/julienschmidt/httprouter"
+  version = "=v1.2.0"
+
+[[constraint]]
+  name = "github.com/gocql/gocql"
+  revision = "b3286acf006eed1f4b2e43b0cbca7431e52a7065"

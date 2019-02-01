@@ -1,8 +1,14 @@
-
-image: ${DOCKER_REGISTRY_PULL_HOST}/cloudsimple/docker/go-docker:0.4
+image: ${DOCKER_REGISTRY_PULL_HOST}/cloudsimple/docker/go-docker:0.4-zip
 stages:
   - check
+  - generate_version
+  - veracode_prepare
+  - veracode_publish
   - publish
+
+variables:
+  PROJECT_HOME: /go/src/gitlab.corp.cloudsimple.com/cloudsimple/csos/incubator
+  SERVICE: shark-tank
 
 check:
   except:
@@ -15,6 +21,56 @@ check:
   stage: check
   tags:
     - docker
+
+generate_version:
+  script:
+  - git clone -v $CLOUDSIMPLE_CI_REPO_URL
+  - echo "export BUILD_VERSION=$(ci-cd/common-jobs/versioning/generate-build-version.py)" >> variables
+  artifacts:
+    paths:
+    - variables
+    expire_in: 1 day
+  stage: generate_version
+  tags:
+  - docker.sock
+
+veracode_prepare:
+  only:
+    variables:
+    - $VERACODE_VERIFY
+  artifacts:
+    paths:
+    - ${SERVICE}.zip
+    expire_in: 1 week
+    when: always
+  stage: veracode_prepare
+  before_script:
+  - mkdir -p $PROJECT_HOME
+  - ln -s ${PWD} $PROJECT_HOME/$SERVICE
+  - cd $PROJECT_HOME/$SERVICE
+  - VERACODE_JSON='echo "{\"MainRoot\":\"cloudsimple/csos/incubator/${SERVICE}/cmd/${SERVICE}\",\"MainPkgName\":\"main\",\"FirstParty\":[$(echo ${VENDOR_DEPS} | sed "s/.$//")]}"'
+  script:
+  - make vendor
+  - VENDOR_DEPS=$(for dir in $(ls vendor); do echo "\"$dir\","; done)
+  - cd /go/src/gitlab.corp.cloudsimple.com
+  - eval $VERACODE_JSON > veracode.json
+  - cd /go/src/
+  - zip -r ${SERVICE}.zip gitlab.corp.cloudsimple.com && mv ${SERVICE}.zip $PROJECT_HOME/${SERVICE}/
+
+veracode_publish:
+  image: ${DOCKER_REGISTRY_PULL_HOST}/maven:3.5.2-jdk-8
+  dependencies:
+  - generate_version
+  - veracode_prepare
+  only:
+    variables:
+    - $VERACODE_VERIFY
+  stage: veracode_publish
+  script:
+  - source variables
+  - echo $BUILD_VERSION
+  - curl -O ${NEXUS_HOST}/repository/maven-all/com/veracode/vosp/api/wrappers/vosp-api-wrappers-java/${VERACODE_WRAPPER_VERSION}/vosp-api-wrappers-java-${VERACODE_WRAPPER_VERSION}.jar
+  - java -jar vosp-api-wrappers-java-${VERACODE_WRAPPER_VERSION}.jar -action UploadAndScan -vid ${TEAM_ANALYSISCENTER_ID} -vkey ${TEAM_ANALYSISCENTER_KEY} -criticality High -createprofile true -autoscan true -version ${BUILD_VERSION}_$(date +%s) -appname csos-${SERVICE} -filepath ${SERVICE}.zip
   
 create_version_tag:
   except:
