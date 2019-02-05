@@ -4,11 +4,13 @@ stages:
   - generate_version
   - veracode_prepare
   - veracode_publish
+  - source_clear_publish
   - publish
 
 variables:
   PROJECT_HOME: /go/src/gitlab.corp.cloudsimple.com/cloudsimple/csos/incubator
   SERVICE: shark-tank
+  SRCCLR_API_TOKEN: eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0ZWFtSWQiOiIxNDk5NSIsInNjb3BlIjpbXSwiaWQiOjQyNzg4LCJleHAiOjE1NDkzNzQwNjUsImF1dGhvcml0aWVzIjoiQUdFTlQiLCJvcmdJZCI6IjM0OTUiLCJqdGkiOiIwY2E5N2UxOC1kYWIyLTRmZjEtODI0Ni03MzI2ZWM0NzdmZWMiLCJjbGllbnRfaWQiOiIifQ.gvETm9lFSfeCQbNBr1vR2_HqJVZdcRkt8LT2COkTMB8QuVUpVk0Wn1dhqsFYEKuFNC9kicW2rG9UvwdFll8lFcOC6Z2qZqQ3i4oN_1wxScgroj_HrDRL4cKzn6USmNas13FsMoJmNLi6B09zUbkVhmIo623vqCtWvxqGRjW1eNs
 
 check:
   except:
@@ -86,3 +88,17 @@ create_version_tag:
   only:
     - master
     - /^rel_.*$/
+
+source_clear_publish:
+  only:
+    variables:
+    - $SOURCE_CLEAR_VERIFY
+  stage: source_clear_publish
+  before_script:
+  - mkdir -p $PROJECT_HOME
+  - cp -R ${PWD} $PROJECT_HOME/$SERVICE
+  - cd $PROJECT_HOME/$SERVICE
+  script:
+  - curl -sSL https://download.sourceclear.com/ci.sh | bash
+  tags:
+  - docker.sock
