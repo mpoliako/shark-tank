@@ -20,7 +20,7 @@ func WithJSONDecorator(h JSONDecorator) httprouter.Handle {
 			return
 		}
 		if resp == nil {
-			w.WriteHeader(code)
+			w.WriteHeader(code)bebe
 			return
 		}
 		data, err := json.Marshal(resp)
